@@ -8,4 +8,5 @@ FindNewReviews("123456").findNewReviews { entry ->
     println("${entry.id.label}: ${entry.imRating.label}: ${entry.title.label}")
 }
 ```
-This will print all new reviews that have been written since the last time the program was run.
+This will print all new reviews that have been written since the last time the program was run. For this purpose it saves
+all known review IDs into a derby database on each run.
