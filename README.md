@@ -4,7 +4,7 @@ A Kotlin library to find new reviews in the Apple AppStore
 E.g. to find all new reviews for app "123456" just use it like this:
 
 ```Kotlin
-FindNewReviews("123456").findNewReviews { entry ->
+FindNewReviews("123456").getNewReviews().forEach { entry ->
     println("${entry.id.label}: ${entry.imRating.label}: ${entry.title.label}")
 }
 ```
