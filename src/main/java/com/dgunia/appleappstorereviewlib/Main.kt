@@ -21,6 +21,9 @@ fun main(args: Array<String>) {
  * Searches for new reviews for the given appid and calls the newReviewListener for each new review it has found.
  */
 class FindNewReviews(val appid: String, val database: String = "reviews$appid.derby") {
+    /**
+     * Returns a list of reviews that were added since the last time the program was run.
+     */
     fun getNewReviews(): List<EntryItem> {
         val result = ArrayList<EntryItem>()
         findNewReviews { result.add(it) }
@@ -28,31 +31,31 @@ class FindNewReviews(val appid: String, val database: String = "reviews$appid.de
     }
 
     private fun findNewReviews(newReviewListener: (EntryItem) -> Unit) {
+        val connection = createDatabaseConnection() ?: throw IOException("Could not open database $database")
+
         // Load the reviews
         val reviews = Reviews(appid).loadRecentReviewsForAllLanguages()
 
         // Save the IDs into a database to check which of them are new.
-        openDatabase()?.let { connection ->
-            reviews.forEach { id, entry ->
-                try {
-                    val stmt = connection.prepareStatement("INSERT INTO ReviewIDs(idlabel) VALUES(?)")
-                    stmt.setLong(1, entry.id.label.toLong())
-                    stmt.execute()
+        reviews.forEach { id, entry ->
+            try {
+                val stmt = connection.prepareStatement("INSERT INTO ReviewIDs(idlabel) VALUES(?)")
+                stmt.setLong(1, entry.id.label.toLong())
+                stmt.execute()
 
-                    // New review found
-                    newReviewListener(entry)
-                } catch (e: DerbySQLIntegrityConstraintViolationException) {
-                }
+                // New review found
+                newReviewListener(entry)
+            } catch (e: DerbySQLIntegrityConstraintViolationException) {
             }
-
-            connection.close()
         }
+
+        connection.close()
     }
 
     /**
-     * Open the database to save the existing IDs into it.
+     * Opens the database to save the existing IDs into it.
      */
-    private fun openDatabase(): Connection? {
+    private fun createDatabaseConnection(): Connection? {
         val dataSource = EmbeddedDataSource()
         dataSource.databaseName = database
         dataSource.user = "sa"
