@@ -1,4 +1,4 @@
-package com.dgunia.appleappstorereviewlib
+package com.dgunia.appstorereviewlib
 
 
 import com.fasterxml.jackson.annotation.JsonProperty

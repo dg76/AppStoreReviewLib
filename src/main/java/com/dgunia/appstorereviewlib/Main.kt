@@ -1,20 +1,98 @@
-package com.dgunia.appleappstorereviewlib
+package com.dgunia.appstorereviewlib
 
 import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import org.apache.commons.cli.DefaultParser
+import org.apache.commons.cli.HelpFormatter
+import org.apache.commons.cli.Option
+import org.apache.commons.cli.Options
 import org.apache.derby.jdbc.EmbeddedDataSource
 import org.apache.derby.shared.common.error.DerbySQLIntegrityConstraintViolationException
+import java.io.FileInputStream
 import java.io.IOException
 import java.sql.Connection
 import java.sql.SQLException
 import java.util.*
+import javax.mail.Message
+import javax.mail.Session
+import javax.mail.internet.InternetAddress
+import javax.mail.internet.MimeMessage
+
+val ARG_APPID = "appid"
+val ARG_APPNAME = "appname"
+val ARG_CONFIG = "config"
 
 fun main(args: Array<String>) {
-    FindNewReviews(args[0]).getNewReviews().forEach { entry ->
-        println("${entry.id.label}: ${entry.imRating.label}: ${entry.title.label}")
+    val options = Options()
+    options.addOption(Option.builder("a").longOpt("appid").desc("The id of the app.").hasArg().argName(ARG_APPID).required().build())
+    options.addOption(Option.builder("n").longOpt("appname").desc("The name of the app for the email subject.").hasArg().argName(ARG_APPNAME).required().build())
+    options.addOption(Option.builder("h").longOpt("help").desc("Help").build())
+    options.addOption(Option.builder("e").longOpt("sendemails").desc("Send an email for each new review.").build())
+    options.addOption(Option.builder("c").longOpt("config").hasArg().argName(ARG_CONFIG).desc("Config file for the email configuration.").build())
+
+    val parser = DefaultParser()
+    val cmd = parser.parse(options, args)
+
+    if (cmd.hasOption("h")) {
+        showHelp(options)
+        return
     }
+
+    if (!cmd.hasOption(ARG_APPID)) {
+        println("You have to specify an appid with \"-a 123456\".")
+        return
+    }
+
+    if (cmd.hasOption("e") && !cmd.hasOption("c")) {
+        println("You have to specify a config file with your email server login.")
+        return
+    }
+
+    val appid = cmd.getOptionValue(ARG_APPID)
+    val sendEmails = cmd.hasOption("e")
+
+    // Load new reviews
+    val newReviews = FindNewReviews(appid).getNewReviews()
+
+    val prop by lazy { Properties().apply { load(FileInputStream(cmd.getOptionValue(ARG_CONFIG))) } }
+
+    // Print and email new reviews
+    newReviews.forEach { entry ->
+        println("${entry.id.label}: ${entry.imRating.label}: ${entry.title.label}")
+
+        if (sendEmails) {
+            sendEmail(entry, appid, cmd.getOptionValue(ARG_APPNAME) ?: appid, prop.getProperty("host"), prop.getProperty("port").toInt(), prop.getProperty("user"), prop.getProperty("password"), prop.getProperty("receiver"), prop.getProperty("from"))
+        }
+    }
+}
+
+fun sendEmail(entry: EntryItem, appid: String, appname: String, smtpHost : String, smtpPort : Int, smtpUsername : String, smtpPassword : String, mailReceiver: String, mailFrom: String) {
+    val props = Properties()
+    props.put("mail.smtp.auth", "true")
+    props.put("mail.smtp.starttls.enable", "true")
+    props.put("mail.smtp.host", smtpHost)
+    props.put("mail.smtp.port", smtpPort)
+
+    val session = Session.getInstance(props, null)
+    val transport = session.getTransport("smtps")
+    transport!!.connect(smtpHost, smtpPort, smtpUsername, smtpPassword)
+
+    val message = MimeMessage(session)
+    message.setFrom(InternetAddress(mailFrom))
+    message.subject = "New review for $appname: (${entry.imRating.label}): ${entry.title.label}"
+    message.setRecipients(Message.RecipientType.TO, mailReceiver)
+    message.setContent(getHTMLEmailBodyForEntry(entry, appid), "text/html; charset=UTF-8")
+    transport.sendMessage(message, InternetAddress.parse(mailReceiver))
+}
+
+fun getHTMLEmailBodyForEntry(entry: EntryItem, appid: String): String {
+    return """<html><head></head><body><p>Rating: ${"⭐⭐⭐⭐⭐".substring(0, entry.imRating.label.toInt())}</p><p>${entry.author.name.label}: <b>${entry.title.label}</b></p><p>${entry.content.label}<p><p><a href="https://appstoreconnect.apple.com/WebObjects/iTunesConnect.woa/ra/ng/app/$appid/activity/ios/ratingsResponses">Open App Store Connect Reviews Page</a></p></body></html>"""
+}
+
+private fun showHelp(options: Options) {
+    HelpFormatter().printHelp("java appstorereviewlib", options);
 }
 
 /**
