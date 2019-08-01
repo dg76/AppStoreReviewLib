@@ -4,10 +4,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import org.apache.commons.cli.DefaultParser
-import org.apache.commons.cli.HelpFormatter
-import org.apache.commons.cli.Option
-import org.apache.commons.cli.Options
+import org.apache.commons.cli.*
 import org.apache.derby.jdbc.EmbeddedDataSource
 import org.apache.derby.shared.common.error.DerbySQLIntegrityConstraintViolationException
 import java.io.FileInputStream
@@ -27,44 +24,48 @@ val ARG_CONFIG = "config"
 fun main(args: Array<String>) {
     val options = Options()
     options.addOption(Option.builder("a").longOpt("appid").desc("The id of the app.").hasArg().argName(ARG_APPID).required().build())
-    options.addOption(Option.builder("n").longOpt("appname").desc("The name of the app for the email subject.").hasArg().argName(ARG_APPNAME).required().build())
+    options.addOption(Option.builder("n").longOpt("appname").desc("The name of the app for the email subject.").hasArg().argName(ARG_APPNAME).build())
     options.addOption(Option.builder("h").longOpt("help").desc("Help").build())
     options.addOption(Option.builder("e").longOpt("sendemails").desc("Send an email for each new review.").build())
     options.addOption(Option.builder("c").longOpt("config").hasArg().argName(ARG_CONFIG).desc("Config file for the email configuration.").build())
 
-    val parser = DefaultParser()
-    val cmd = parser.parse(options, args)
+    try {
+        val parser = DefaultParser()
+        val cmd = parser.parse(options, args)
 
-    if (cmd.hasOption("h")) {
-        showHelp(options)
-        return
-    }
-
-    if (!cmd.hasOption(ARG_APPID)) {
-        println("You have to specify an appid with \"-a 123456\".")
-        return
-    }
-
-    if (cmd.hasOption("e") && !cmd.hasOption("c")) {
-        println("You have to specify a config file with your email server login.")
-        return
-    }
-
-    val appid = cmd.getOptionValue(ARG_APPID)
-    val sendEmails = cmd.hasOption("e")
-
-    // Load new reviews
-    val newReviews = FindNewReviews(appid).getNewReviews()
-
-    val prop by lazy { Properties().apply { load(FileInputStream(cmd.getOptionValue(ARG_CONFIG))) } }
-
-    // Print and email new reviews
-    newReviews.forEach { entry ->
-        println("${entry.id.label}: ${entry.imRating.label}: ${entry.title.label}")
-
-        if (sendEmails) {
-            sendEmail(entry, appid, cmd.getOptionValue(ARG_APPNAME) ?: appid, prop.getProperty("host"), prop.getProperty("port").toInt(), prop.getProperty("user"), prop.getProperty("password"), prop.getProperty("receiver"), prop.getProperty("from"))
+        if (cmd.hasOption("h")) {
+            showHelp(options)
+            return
         }
+
+        if (!cmd.hasOption(ARG_APPID)) {
+            println("You have to specify an appid with \"-a 123456\".")
+            return
+        }
+
+        if (cmd.hasOption("e") && !cmd.hasOption("c")) {
+            println("You have to specify a config file with your email server login.")
+            return
+        }
+
+        val appid = cmd.getOptionValue(ARG_APPID)
+        val sendEmails = cmd.hasOption("e")
+
+        // Load new reviews
+        val newReviews = FindNewReviews(appid).getNewReviews()
+
+        val prop by lazy { Properties().apply { load(FileInputStream(cmd.getOptionValue(ARG_CONFIG))) } }
+
+        // Print and email new reviews
+        newReviews.forEach { entry ->
+            println("${entry.id.label}: ${entry.imRating.label}: ${entry.title.label}")
+
+            if (sendEmails) {
+                sendEmail(entry, appid, cmd.getOptionValue(ARG_APPNAME) ?: appid, prop.getProperty("host"), prop.getProperty("port").toInt(), prop.getProperty("user"), prop.getProperty("password"), prop.getProperty("receiver"), prop.getProperty("from"))
+            }
+        }
+    } catch (e: MissingOptionException) {
+        showHelp(options)
     }
 }
 

@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.dgunia</groupId>
-    <artifactId>AppleAppStoreReviewsLib</artifactId>
+    <artifactId>AppStoreReviewsLib</artifactId>
     <version>1.0</version>
 
     <properties>
@@ -81,6 +81,19 @@
                 </executions>
                 <configuration>
                     <jvmTarget>1.8</jvmTarget>
+                </configuration>
+            </plugin>
+            <plugin>
+                <artifactId>maven-assembly-plugin</artifactId>
+                <configuration>
+                    <archive>
+                        <manifest>
+                            <mainClass>com.dgunia.appstorereviewlib.MainKt</mainClass>
+                        </manifest>
+                    </archive>
+                    <descriptorRefs>
+                        <descriptorRef>jar-with-dependencies</descriptorRef>
+                    </descriptorRefs>
                 </configuration>
             </plugin>
         </plugins>
