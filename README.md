@@ -11,6 +11,8 @@ FindNewReviews("123456").getNewReviews().forEach { entry ->
 This will print all new reviews that have been written since the last time the program was run. For this purpose it saves
 all known review IDs into an Apache Derby database on each run.
 
+## Command Line Usage
+
 You can use it from the command line to send you emails for all new reviews. First compile the project:
 ```
 mvn clean compile assembly:single
